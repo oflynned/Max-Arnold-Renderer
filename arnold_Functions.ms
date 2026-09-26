@@ -101,6 +101,7 @@ fn SetupSky =
 	if (hasProperty sky_map "azimuth")   do sky_map.azimuth   = 216.6
 	-- sun_direction points TOWARD the sun (the sun's position direction), which
 	-- is the opposite sign from the light-travel ray direction [474,352,-575].
+	-- These values match SC4's game engine shadow angle exactly (Maxis calibrated).
 	local sd = [-474.0, -352.0, 575.0]
 	local sdLen = length sd
 	if sdLen > 0.0 do sd = sd / sdLen
@@ -379,8 +380,8 @@ fn Rig1 =
 	sky = Arnold_Light shapeType:6 pos:[0,0,575] name:"Arnold Sky"
 	if (hasProperty sky "texmap") do sky.texmap = sky_map
 	if (hasProperty sky "useTexmap") do sky.useTexmap = true
-	-- Increased sky intensity to 0.5 to brighten the scene overall
-	sky.intensity = 0.5
+	-- Increase sky intensity for ambient fill matching SC4 look
+	sky.intensity = 1.0
 	sky.exposure = 0.0
 	-- Disable skydome shadows so we only get clean hard shadows from the distant light
 	if (hasProperty sky "cast_shadows") do sky.cast_shadows = false
@@ -389,8 +390,8 @@ fn Rig1 =
 	-- Re-investigate the dead distant light with a targeted light variant
 	local sunTarg = TargetObject pos:[0,0,0] name:"Arnold Sun.Target"
 	sun = Arnold_Light shapeType:1 pos:[-474, -352, 575] name:"Arnold Sun"
-	sun.intensity = 1.0
-	sun.exposure = 0.0
+	sun.intensity = 3.0
+	sun.exposure = 1.5
 	if (hasProperty sun "cast_shadows") do sun.cast_shadows = true
 	if (hasProperty sun "castShadows") do sun.castShadows = true
 	
@@ -472,8 +473,8 @@ fn Rig4 =
 --	were on a totally different scale and would clip everything to white in Arnold
 --	(2^10 ~ 1000x over-exposed). Use Arnold-appropriate values instead.
 
-/* Day exposure settings: sun + sky provide plenty of light, keep near neutral. */
-fn GC1 = FnSetExposureImager 0.0 2.2
+/* Day exposure settings: sun + sky are now brighter, pull exposure down to avoid blowout. */
+fn GC1 = FnSetExposureImager -1.0 2.2
 
 /* Night exposure settings: scene is dim, lift exposure a few stops. */
 fn GC2 = FnSetExposureImager 3.0 2.2
@@ -490,9 +491,11 @@ fn FG1 =
 	-- via diagnostic). Guard each one so we degrade gracefully if a future build
 	-- renames it.
 
-	-- Anti-aliasing: AA_samples is the primary edge-quality control. Default is 3,
-	-- which can look pixelated on the small BAT renders. Bump to 6 for clean edges.
-	if (hasProperty myRen "AA_samples") do myRen.AA_samples = 6
+	-- Anti-aliasing: keep AA_samples moderate (3) to avoid wide semi-transparent
+	-- edge bands that bleed black through premultiplied alpha, producing the dark
+	-- outline/fringe visible in-game. Box filter (width 1) gives the sharpest edges.
+	if (hasProperty myRen "AA_samples") do myRen.AA_samples = 3
+	if (hasProperty myRen "output_sample_filter") do myRen.output_sample_filter = 0  -- 0 = box
 
 	-- GI / indirect sampling.
 	if (hasProperty myRen "GI_diffuse_samples") do myRen.GI_diffuse_samples = 3
@@ -551,7 +554,8 @@ fn SetDay =
 	-- Disable the skydome's internal physical-sky sun (sunIntensity = 0.0).
 	-- We now rely on the dedicated 'Arnold Sun' (targeted distant light) created in Rig1
 	-- to provide the hard directional light and shadows, which is fixed in world space.
-	FnApplySkyMapParams 2.0 3.0 0.0 1.0 (color 20 19 18) 0.0 1.0 4.0
+	-- Turbidity 2.0 for cleaner sky, warmer ground albedo to match SC4.
+	FnApplySkyMapParams 1.5 2.0 0.0 1.0 (color 40 38 35) 0.0 1.0 4.0
 
 	-- IMPORTANT: do NOT parent the sun/sky to $TB2CameraHandle. The camera rig
 	-- rotates TB2CameraHandle by 90 deg per export view to orbit the cameras; if
