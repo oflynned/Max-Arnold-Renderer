@@ -838,7 +838,15 @@ fn FnDoRender2 renderBox renderNight display:#all =
 --CP SET TARGA INTERFACE FOR ALPHA SPLIT TO GENERATE ALPHA IMAGE
     targa.itgaio.setcolordepth 32
     targa.itgaio.setalphasplit true
-	targa.itgaio.setPreMultAlpha true
+	-- ARNOLD FIX: Disable premultiplied alpha for Arnold. The alpha mask comes from
+	-- a separate Scanline pass whose edges don't perfectly align with Arnold's AA.
+	-- Premult over black darkens edge pixels, producing a visible dark outline in-game.
+	-- Straight alpha lets the Scanline alpha mask cleanly cut the sprite boundary.
+	if (FnIsArnoldActive()) then (
+		targa.itgaio.setPreMultAlpha false
+	) else (
+		targa.itgaio.setPreMultAlpha true
+	)
 
 	-- ARNOLD CONVERSION: render the EXPORT against a BLACK background. The
 	-- preview uses gray so the window isn't pure black, but premultiplied alpha
